@@ -11,7 +11,7 @@ class Dmm:
 
     # load the module
     import tp4000zc
-    
+
     # the port that we're going to use.  This can be a number or device name.
     # on linux or posix systems this will look like /dev/tty2 or /dev/ttyUSB0
     # on windows this will look something like COM3
@@ -22,7 +22,7 @@ class Dmm:
 
     # read a value
     val = dmm.read()
-    
+
     print val.text       # print the text representation of the value
                          # something like: -4.9 millivolts DC
     print val.numericVal # and the numeric value
@@ -33,8 +33,8 @@ class Dmm:
 
     Public Interface:
     __init__(port, retries=3, timeout=3.0):
-        Instantiating the class attempts to open the serial port specified, 
-        initialize it and read enough from the serial port to synchronize 
+        Instantiating the class attempts to open the serial port specified,
+        initialize it and read enough from the serial port to synchronize
         the module with the start/end of a full reading.
 
     read():
@@ -44,27 +44,27 @@ class Dmm:
     close():
         Finally you can close the serial port connection with close()
 
-    Exceptions will be raised if 
+    Exceptions will be raised if
        * PySerial raises an exception (SerialException or ValueError)
        * this module can't get a full reading that passes initial data integrity
          checks (subclasses of DmmException)
        * I made a coding error (whatever python might throw)
 
     If no exceptions are raised the DmmValue might still fail various sanity
-    checks or not have a numeric value.  Ie I believe that showing showing 
+    checks or not have a numeric value.  Ie I believe that showing showing
     multiple decimal points makes no sense but is valid per the protocol so
     no exception is raised but the saneValue flag will be set to False in the
     DmmValue.
 
     Meter Documentation:
 
-    Per the documentation page, the meter spits out readings which are bursts of 
-    14 bytes every .25 seconds.  The high nibble of each byte is the byte number 
+    Per the documentation page, the meter spits out readings which are bursts of
+    14 bytes every .25 seconds.  The high nibble of each byte is the byte number
     (1-14) for synchronization and sanity checks, the low nibble holds the data.
 
-    Each data bit represents an individual field on the LCD display of the meter, 
+    Each data bit represents an individual field on the LCD display of the meter,
     from segments of the 7 segment digits to individual flags.  Bytes 1 and 10-14
-    are flags (with four bits reserved/unmapped on this meter) and bytes (2,3), 
+    are flags (with four bits reserved/unmapped on this meter) and bytes (2,3),
     (4,5), (5,6) and (7,8) representing the individual digits on the display.
 
     For the digits, if the high bit of the first nibble of a digit is set then the
@@ -125,13 +125,13 @@ class Dmm:
             else:
                 success = True
                 break
-            
+
             # if we're here we need to resync and retry
             self._synchronize()
 
         if not success:
             raise DmmReadFailure()
-        
+
 
         val = ''
         for (d1,d2,ch) in self.digits:
@@ -145,7 +145,7 @@ class Dmm:
             self._readAttribByte(data[k-1], v, attribs)
 
         return DmmValue(val, attribs, readAttempt, data)
-                            
+
 
     def _synchronize(self):
         v = self.ser.read(1)
@@ -206,24 +206,24 @@ class Dmm:
         except:
             digit = 'X'
         return highBit, digit
-            
+
 
 class DmmValue:
     """
     This is a representation of a single read from the multimeter.
 
     Attributes in rough order of usefulness:
-    
+
     Sanity checks:
        saneValue: True if no sanity checks failed.
-    
+
     High level computed fields:
        text: Nicely formatted text representation of the value.
        numericVal: numeric value after SI prefixes applied or None if value is non-numeric.
        measurement: what is being measured.
        delta: True if the meter is in delta mode.
        ACDC: 'AC', 'DC' or None.
-       readErrors:  Number of failed reads attempts before successfully getting a reading 
+       readErrors:  Number of failed reads attempts before successfully getting a reading
            from the meter.
 
     Other, possibly useful, computed fields:
@@ -237,7 +237,7 @@ class DmmValue:
        measurementFlags: Flags to specify what the meter is measuring
        reservedFlags: Flags that are undefined
        rawBytes:  the raw, 14 byte bitstream that produced this value.
-    
+
     """
     def __init__(self, val, attribs, readErrors, rawBytes):
         self.saneValue = True
@@ -286,7 +286,7 @@ class DmmValue:
             self.delta = True
             self.deltaText = 'delta '
 
-    scaleTable = {'nano': 0.000000001, 'micro': 0.000001, 'milli': 0.001, 
+    scaleTable = {'nano': 0.000000001, 'micro': 0.000001, 'milli': 0.001,
                   'kilo': 1000.0, 'mega': 1000000.0}
     def processScale(self):
         s = self.scaleFlags

@@ -112,14 +112,14 @@ class Dmm:
         # first get a set of bytes and validate it.
         # if the first doesn't validate, synch and get a new set.
         success = False
-        for readAttempt in xrange(self.retries):
-            bytes = self.ser.read(self.bytesPerRead)
-            if len(bytes) != self.bytesPerRead:
+        for readAttempt in range(self.retries):
+            data = self.ser.read(self.bytesPerRead)
+            if len(data) != self.bytesPerRead:
                 self._synchronize()
                 continue
 
-            for pos, byte in enumerate(bytes, start=1):
-                if ord(byte) // 16 != pos:
+            for pos, byte in enumerate(data, start=1):
+                if byte // 16 != pos:
                     self._synchronize()
                     break
             else:
@@ -135,23 +135,23 @@ class Dmm:
 
         val = ''
         for (d1,d2,ch) in self.digits:
-            highBit, digit = self._readDigit(bytes[d1-1], bytes[d2-1])
+            highBit, digit = self._readDigit(data[d1-1], data[d2-1])
             if highBit:
                 val = val + ch
             val = val + digit
 
         attribs = self._initAttribs()
         for k,v in self.bits.items():
-            self._readAttribByte(bytes[k-1], v, attribs)
+            self._readAttribByte(data[k-1], v, attribs)
 
-        return DmmValue(val, attribs, readAttempt, bytes)
+        return DmmValue(val, attribs, readAttempt, data)
                             
 
     def _synchronize(self):
         v = self.ser.read(1)
         if len(v) != 1:
             raise DmmNoData()
-        n = ord(v)
+        n = v[0]
         pos = n // 16
         if pos == 0 or pos == 15:
             raise DmmInvalidSyncValue()
@@ -186,7 +186,7 @@ class Dmm:
         return {'flags':[], 'scale':[], 'measure':[], 'other':[]}
 
     def _readAttribByte(self, byte, bits, attribs):
-        b = ord(byte) % 16
+        b = byte % 16
         bitVal = 8
         for (attr, val) in bits:
             v = b // bitVal
@@ -197,10 +197,10 @@ class Dmm:
             bitVal //= 2
 
     def _readDigit(self, byte1, byte2):
-        b1 = ord(byte1) % 16
+        b1 = byte1 % 16
         highBit = b1 // 8
         b1 = b1 % 8
-        b2 = ord(byte2) % 16
+        b2 = byte2 % 16
         try:
             digit = self.digitTable[(b1,b2)]
         except:
@@ -333,7 +333,7 @@ class DmmValue:
         return "<DmmValue instance: %s>"%self.text
 
 
-class DmmException:
+class DmmException(Exception):
     "Base exception class for Dmm."
 
 class DmmNoData(DmmException):
@@ -351,8 +351,8 @@ def main():
 
     while True:
         val = dmm.read()
-        print val.text
-        print val.numericVal
+        print(val.text)
+        print(val.numericVal)
 
 # main hook
 if __name__ == "__main__":

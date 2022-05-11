@@ -65,14 +65,14 @@ class Dmm:
     Each data bit represents an individual field on the LCD display of the meter,
     from segments of the 7 segment digits to individual flags.  Bytes 1 and 10-14
     are flags (with four bits reserved/unmapped on this meter) and bytes (2,3),
-    (4,5), (5,6) and (7,8) representing the individual digits on the display.
+    (4,5), (6,7) and (8,9) representing the individual digits on the display.
 
     For the digits, if the high bit of the first nibble of a digit is set then the
     negative sign (for the first digit) or the leading decimal point is turned on.
     the remaining bits of the two nibbles represent the elements of the 7 segment
     digit display as follows:
 
-      pos 1       nibble 1:   S123
+      pos 3       nibble 1:   S123
      p     p      nibble 2:   4567
      o     o      where S is either the sign or decimal bit.
      s     s

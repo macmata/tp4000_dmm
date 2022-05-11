@@ -111,27 +111,19 @@ class Dmm:
 
         # first get a set of bytes and validate it.
         # if the first doesn't validate, synch and get a new set.
-        success = False
         for readAttempt in range(self.retries):
             data = self.ser.read(self.bytesPerRead)
-            if len(data) != self.bytesPerRead:
-                self._synchronize()
-                continue
-
-            for pos, byte in enumerate(data, start=1):
-                if byte // 16 != pos:
-                    self._synchronize()
+            if len(data) == self.bytesPerRead:
+                for pos, byte in enumerate(data, start=1):
+                    if byte // 16 != pos:
+                        break
+                else:
                     break
-            else:
-                success = True
-                break
 
-            # if we're here we need to resync and retry
+            if (readAttempt + 1) >= self.retries:
+                raise DmmReadFailure()
+
             self._synchronize()
-
-        if not success:
-            raise DmmReadFailure()
-
 
         val = ''
         for (d1,d2,ch) in self.digits:
@@ -140,7 +132,13 @@ class Dmm:
                 val = val + ch
             val = val + digit
 
-        attribs = self._initAttribs()
+        attribs = {
+            'flags': [],
+            'scale': [],
+            'measure': [],
+            'other': [],
+        }
+
         for k,v in self.bits.items():
             self._readAttribByte(data[k-1], v, attribs)
 
@@ -149,11 +147,10 @@ class Dmm:
 
     def _synchronize(self):
         v = self.ser.read(1)
-        if len(v) != 1:
+        if not v:
             raise DmmNoData()
-        n = v[0]
-        pos = n // 16
-        if pos == 0 or pos == 15:
+        pos = v[0] // 16
+        if pos in (0, 15):
             raise DmmInvalidSyncValue()
 
         bytesNeeded = self.bytesPerRead - pos
@@ -182,16 +179,12 @@ class Dmm:
                   (7,14):'6', (1,5):'7', (7,15):'8', (3,15):'9', (7,13):'0',
                   (6,8):'L', (0,0):' '}
 
-    def _initAttribs(self):
-        return {'flags':[], 'scale':[], 'measure':[], 'other':[]}
-
     def _readAttribByte(self, byte, bits, attribs):
         b = byte % 16
         bitVal = 8
         for (attr, val) in bits:
-            v = b // bitVal
-            if v:
-                b = b - bitVal
+            if b // bitVal:
+                b -= bitVal
                 #print "adding flag type %s, val %s"%(attr, val)
                 attribs[attr].append(val)
             bitVal //= 2
@@ -259,13 +252,9 @@ class DmmValue:
             self.createTextExpression()
 
     def createTextExpression(self):
-        text =  self.deltaText
-        text += self.val
-        text += ' '
-        text += self.scale
-        text += self.measurement
-        text += self.ACDCText
-        self.text = text
+        self.text = (
+            f"{self.deltaText}{self.val} {self.scale}{self.measurement}{self.ACDCText}"
+        )
 
     def processFlags(self):
         flags = self.flags
@@ -293,40 +282,33 @@ class DmmValue:
         self.scale = ''
         self.multiplier = 1
 
-        if len(s) == 0:
-            return
-        if len(s) > 1:
-            self.saneValue = False
-            return
-        self.scale = s[0]
-        self.multiplier = self.scaleTable[self.scale]
+        if s:
+            if len(s) > 1:
+                self.saneValue = False
+            else:
+                self.scale = s[0]
+                self.multiplier = self.scaleTable[self.scale]
 
     def processMeasurement(self):
         m = self.measurementFlags
-        self.measurement = None
-        if len(m) != 1:
+        if len(m) == 1:
+            self.measurement = m[0]
+        else:
+            self.measurement = None
             self.saneValue = False
-            return
-        self.measurement = m[0]
 
     def processVal(self):
         v = self.rawVal
         self.numericVal = None
-        if 'X' in v:
+        if 'X' in v or v.count('.') > 1:
             self.saneValue = False
-            return
-        if v.count('.') > 1:
-            self.saneValue = False
-            return
+        else:
+            try:
+                n = float(v)
+            except ValueError:
+                return
 
-        n = None
-        try:
-            n = float(v)
-        except:
-            pass
-
-        if n is not None:
-            self.val = '%s'%n  # this should remove leading zeros, spaces etc.
+            self.val = str(n)
             self.numericVal = n * self.multiplier
 
     def __repr__(self):
